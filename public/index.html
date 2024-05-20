@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Localized Artistic Blur with Accumulative Effect</title>
+    <style>
+        #text {
+            font-size: 36px;
+            line-height: 1.6;
+            width: 100%;
+            margin: 20px auto;
+            position: relative;
+            white-space: nowrap;
+        }
+        canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+    </style>
+</head>
+<body>
+    <div id="text">This is a test. Let’s see how well the function works.</div>
+    <div id="gptGuess">AI Guess will appear here</div>
+    <canvas></canvas>
+    <script src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js'></script>
+    <script>
+        var latestText = ""; // 全局变量存储最新的文本
+
+        window.onload = function() {
+            var textElement = document.getElementById('text');
+            var canvas = document.querySelector('canvas');
+            var context = canvas.getContext('2d');
+            canvas.width = window.innerWidth;
+            canvas.height = 200;
+
+            var blurMap = new Map();
+
+            document.addEventListener('mousemove', function(e) {
+                applyLocalBlur(e.clientX, e.clientY);
+            });
+
+            setInterval(function() {
+                regenerateText();
+            }, 2000);
+
+            setInterval(function() {
+                callOpenAIGPT(textElement.textContent);
+            }, 5000);
+
+            // 其他现有的函数...
+            function applyLocalBlur(x, y) {
+                context.clearRect(0, 0, canvas.width, canvas.height);
+                context.font = "36px Arial";
+                context.textBaseline = "top";
+
+                // 绘制文本前根据模糊映射调整模糊度
+                var totalWidth = 0;
+                var text = textElement.textContent.split(" ");
+                text.forEach(word => {
+                    var wordWidth = context.measureText(word + " ").width;
+                    if (x >= totalWidth && x <= totalWidth + wordWidth) {
+                        // 鼠标经过单词时增加模糊度
+                        increaseBlur(totalWidth, wordWidth, canvas.height / 2);
+                    }
+                    var maxBlur = getMaxBlur(totalWidth, wordWidth, canvas.height / 2);
+                    context.filter = `blur(${maxBlur}px)`;
+                    context.fillText(word + " ", totalWidth, 0);
+                    totalWidth += wordWidth;
+                });
+            }
+
+            function increaseBlur(startX, wordWidth, centerY) {
+                for (let i = startX; i <= startX + wordWidth; i++) {
+                    for (let j = centerY - 20; j <= centerY + 20; j++) {
+                        let pixelKey = `${i},${j}`;
+                        let currentBlur = blurMap.get(pixelKey) || 0;
+                        blurMap.set(pixelKey, currentBlur + 0.05);
+                    }
+                }
+            }
+            
+
+            function getMaxBlur(startX, wordWidth, centerY) {
+                let maxBlur = 0;
+                for (let i = startX; i <= startX + wordWidth; i++) {
+                    let pixelKey = `${i},${centerY}`;
+                    let blurLevel = blurMap.get(pixelKey) || 0;
+                    maxBlur = Math.max(maxBlur, blurLevel);
+                }
+                return maxBlur;
+            }
+
+            function regenerateText() {
+                canvas.toBlob(function(blob) {
+                    Tesseract.recognize(
+                        blob,
+                        'eng',
+                        { logger: m => console.log(m) }
+                    ).then(({ data: { text } }) => {
+                        console.log("OCR Result:", text);
+                        textElement.textContent = text; // 更新页面显示的文本
+                        latestText = text; // 更新全局变量为最新的文本
+                    });
+                });
+            }
+            
+            function callOpenAIGPT() {
+                var text = latestText; // 使用全局变量中的最新文本
+                var prompt = `hello, this is an OCR recognized text: '${text}'. The original text is blurred so I cannot understand its meaning. Can you make a guess of what was the original text? Please only return the text you guess for me, no other informations.`;
+            
+                fetch('http://localhost:3001/call-openai', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        prompt: prompt,
+                        text: text
+                    })
+                }).then(response => response.json())
+                .then(data => {
+                    console.log("AI Regeneration:", data.guess);
+                    document.getElementById('gptGuess').textContent = "GPT-3 Guess: " + data.guess; // 在页面上显示GPT-3的猜测
+                }).catch(error => {
+                    console.error("Error calling OpenAI GPT:", error);
+                });
+            }
+            
+            
+
+        };
+    </script>
+</body>
+</html>
