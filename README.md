@@ -1,6 +1,9 @@
 # s2e-gaze
 ## Demo
+1) technical demo
 ![gaze-demo1-ezgif com-video-to-gif-converter](https://github.com/enenmia/s2e-gaze/assets/87007372/43a5eed6-30b0-428c-90c4-49881735d1fb)
+2) initial experience demo
+![ScreenRecording2024-05-25at18 09 36-ezgif com-video-to-gif-converter](https://github.com/enenmia/s2e-gaze/assets/87007372/704a92e3-c56a-429f-a2f9-91245b78af66)
 
 
 ### Prerequisites
