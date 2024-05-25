@@ -2,7 +2,13 @@
 <html>
 <head>
     <title>Localized Artistic Blur with Accumulative Effect</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Titillium+Web:ital,wght@0,200;0,300;0,400;0,600;0,700;0,900;1,200;1,300;1,400;1,600;1,700&display=swap" rel="stylesheet">
     <style>
+        body{
+            cursor: url('eye.svg'), auto;
+        }
         #text {
             font-size: 36px;
             line-height: 1.6;
@@ -10,24 +16,48 @@
             margin: 20px auto;
             position: relative;
             white-space: nowrap;
+            color: white; /* Set text color to white */
+        }
+        #gptGuess {
+            font-size: 36px;
+            line-height: 1.6;
+            width: 100%;
+            margin: 20px auto;
+            position: relative;
+            white-space: nowrap;
+            color: white; /* Set GPT-3 generated text color to white */
         }
         canvas {
-            position: absolute;
-            top: 0;
-            left: 0;
+            margin-top: 350px;
+            margin-left:320px;
+            font-family: "Titillium Web", sans-serif;
         }
     </style>
 </head>
 <body>
-    <div id="text">This is a test. Let’s see how well the function works.</div>
-    <div id="gptGuess">AI Guess will appear here</div>
     <canvas></canvas>
+    <div id="text">Being and time determine each other reciprocally.</div>
+    <div id="gptGuess">Being and time determine each other reciprocally.</div>
     <script src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js'></script>
     <script>
-        var latestText = ""; // 全局变量存储最新的文本
-
+        var latestText = ""; // Global variable to store the latest text
+        var maxBlurLevel = 4;
+        function typeWriter(element, text, speed) {
+            let i = 0;
+            element.textContent = ''; // Clear existing text
+            function type() {
+                if (i < text.length) {
+                    element.textContent += text.charAt(i);
+                    i++;
+                    setTimeout(type, speed);
+                }
+            }
+            type();
+        }
+        
         window.onload = function() {
             var textElement = document.getElementById('text');
+            var gptGuessElement = document.getElementById('gptGuess');
             var canvas = document.querySelector('canvas');
             var context = canvas.getContext('2d');
             canvas.width = window.innerWidth;
@@ -36,33 +66,37 @@
             var blurMap = new Map();
 
             document.addEventListener('mousemove', function(e) {
-                applyLocalBlur(e.clientX, e.clientY);
+                var rect = canvas.getBoundingClientRect();
+                var x = e.clientX - rect.left; // Adjust x to consider canvas' margin-left
+                var y = e.clientY - rect.top; // Adjust y to consider canvas' margin-top
+                applyLocalBlur(x, y);
             });
+            
 
             setInterval(function() {
                 regenerateText();
-            }, 2000);
+            }, 4000);
 
             setInterval(function() {
-                callOpenAIGPT(textElement.textContent);
-            }, 5000);
+                callOpenAIGPT();
+            }, 10000);
 
-            // 其他现有的函数...
+            // Apply local blur effect
             function applyLocalBlur(x, y) {
                 context.clearRect(0, 0, canvas.width, canvas.height);
-                context.font = "36px Arial";
+                context.font = "36px 'Titillium Web', sans-serif";
                 context.textBaseline = "top";
 
-                // 绘制文本前根据模糊映射调整模糊度
+                // Draw text with blur
                 var totalWidth = 0;
-                var text = textElement.textContent.split(" ");
+                var text = gptGuessElement.textContent.split(" "); // Use GPT-3 guess text instead
                 text.forEach(word => {
                     var wordWidth = context.measureText(word + " ").width;
                     if (x >= totalWidth && x <= totalWidth + wordWidth) {
-                        // 鼠标经过单词时增加模糊度
                         increaseBlur(totalWidth, wordWidth, canvas.height / 2);
                     }
                     var maxBlur = getMaxBlur(totalWidth, wordWidth, canvas.height / 2);
+                    maxBlur = Math.min(maxBlur, maxBlurLevel); // Limit the blur level
                     context.filter = `blur(${maxBlur}px)`;
                     context.fillText(word + " ", totalWidth, 0);
                     totalWidth += wordWidth;
@@ -78,7 +112,6 @@
                     }
                 }
             }
-            
 
             function getMaxBlur(startX, wordWidth, centerY) {
                 let maxBlur = 0;
@@ -98,16 +131,16 @@
                         { logger: m => console.log(m) }
                     ).then(({ data: { text } }) => {
                         console.log("OCR Result:", text);
-                        textElement.textContent = text; // 更新页面显示的文本
-                        latestText = text; // 更新全局变量为最新的文本
+                        textElement.textContent = text.split("\n")[0]; // Update only the first line of text
+                        latestText = text.split("\n")[0]; // Update global variable with the first line
                     });
                 });
             }
-            
+
             function callOpenAIGPT() {
-                var text = latestText; // 使用全局变量中的最新文本
-                var prompt = `hello, this is an OCR recognized text: '${text}'. The original text is blurred so I cannot understand its meaning. Can you make a guess of what was the original text? Please only return the text you guess for me, no other informations.`;
-            
+                var text = latestText; // Use the latest text from the global variable
+                var prompt = `hello, this is an OCR recognized text: '${text}'. The original text is blurred so I cannot understand its meaning. I know it had 7-10 words, and is about 'being'. Can you make a guess of what was the original text(it was a fluent statment)? Only change the word you can not understand, don't change too much. Please only return the text you guess, no other informations.`;
+
                 fetch('http://localhost:3001/call-openai', {
                     method: 'POST',
                     headers: {
@@ -120,14 +153,13 @@
                 }).then(response => response.json())
                 .then(data => {
                     console.log("AI Regeneration:", data.guess);
-                    document.getElementById('gptGuess').textContent = "GPT-3 Guess: " + data.guess; // 在页面上显示GPT-3的猜测
+                    gptGuessElement.textContent = data.guess; // Display GPT-3's guess
+                    blurMap.clear();
+                    
                 }).catch(error => {
                     console.error("Error calling OpenAI GPT:", error);
                 });
             }
-            
-            
-
         };
     </script>
 </body>

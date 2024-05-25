@@ -13,7 +13,7 @@ const PORT = process.env.PORT || 3001;
 app.post('/call-openai', async (req, res) => {
     const { text } = req.body; // 从请求体获取文本
 
-    const prompt = `hello, this is an OCR recognized text: '${text}'. The original text is blurred so I cannot understand its meaning. Can you make a guess of what was the original text(it was a fluent statment)? Please only return the text you guess, no other informations such as descriptions, greetings...`;
+    const prompt = `hello, this is an OCR recognized text: '${text}'. The original text is blurred so I cannot understand its meaning. I know it had 7-10 words, and is about 'being'. Can you make a guess of what was the original text(it was a fluent statment)?Only change the word you can not understand, don't change too much. Please only return the text you guess, no other informations.`;
 
     try {
         const response = await axios.post('https://api.openai.com/v1/chat/completions', {
