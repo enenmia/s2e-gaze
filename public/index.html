@@ -3,12 +3,18 @@
 <head>
     <title>Localized Artistic Blur with Accumulative Effect</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cedarville+Cursive&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Titillium+Web:ital,wght@0,200;0,300;0,400;0,600;0,700;0,900;1,200;1,300;1,400;1,600;1,700&display=swap" rel="stylesheet">
+    <!-- <script src='./1/js/api/jcPrinterSdk_api_third.js'></script> -->
+    <script src='./1/js/api/jcPrinterSdk_api_third.js'></script>
+    <script src='./1/js/iJcPrinterSdk_third.js'></script>
+     
     <style>
-        body{
-            cursor: url('eye.svg'), auto;
-        }
+        
+        
         #text {
             font-size: 36px;
             line-height: 1.6;
@@ -16,7 +22,7 @@
             margin: 20px auto;
             position: relative;
             white-space: nowrap;
-            color: white; /* Set text color to white */
+            color: transparent; /* Set text color to white */
         }
         #gptGuess {
             font-size: 36px;
@@ -25,23 +31,272 @@
             margin: 20px auto;
             position: relative;
             white-space: nowrap;
-            color: white; /* Set GPT-3 generated text color to white */
+            color: transparent; /* Set GPT-3 generated text color to white */
+
         }
+
         canvas {
-            margin-top: 350px;
+
+
+            margin-top: 320px;
+            margin-left:340px;
+            font-family: "Titillium Web", sans-serif; 
+        }
+        
+
+        #poem{
             margin-left:320px;
             font-family: "Titillium Web", sans-serif;
+            font-size: 36px;
+            position: absolute;
+            top:310px;
+            font-weight: 400;
+
         }
+        .calibration-point {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            background-color: transparent; /* Make the calibration points visible */
+            border-radius: 50%; /* Circular points */
+            transform: translate(-50%, -50%); /* Center the point */
+        }
+        
     </style>
 </head>
 <body>
     <canvas></canvas>
-    <div id="text">Being and time determine each other reciprocally.</div>
-    <div id="gptGuess">Being and time determine each other reciprocally.</div>
+    <!-- <div id="poem">
+        <p>It establishes the universal ideas in language</p>
+        <p>And guides our hand so we write Truth and Justice</p>
+        <p>With capital letters, lie and oppression with small</p>
+    </div> --><div id="calibrationArea">
+    <div class="calibration-point" id="point1" style="top: 0%; left: 0%;"></div>
+    <div class="calibration-point" id="point2" style="top: 0%; left: 100%;"></div>
+    <div class="calibration-point" id="point3" style="top: 100%; left: 0%;"></div>
+    <div class="calibration-point" id="point4" style="top: 100%; left: 100%;"></div>
+    <div class="calibration-point" id="point5" style="top: 50%; left: 50%;"></div>
+    <!-- Add more points if necessary -->
+</div>
+
+    <div id="text">Human reason is beautiful and invincible.</div>
+    <div id="gptGuess">Human reason is beautiful and invincible.</div>
+    <div>
+        <button id="goFullScreen">Go full screen</button>
+        <button id="workingButton">Leave this view</button>
+    </div>
+    
+    <!-- <button class="print_label" id="workingButton"onclick="startPrintJobTestWithUpdatedData()" type="button">Leave this view</button> -->
     <script src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js'></script>
+    <script src="https://webgazer.cs.brown.edu/webgazer.js"></script>
+
     <script>
+        const calibrationPoints = [
+{ x: 10, y: 10 },
+{ x: 1319, y: 10 },
+{ x: 1319, y: 828 },
+{ x: 10, y: 828 },
+{ x: 665, y: 419 }
+];
+
+// 存储校准点到 localStorage
+localStorage.setItem('calibrationData', JSON.stringify(calibrationPoints));
+document.addEventListener('DOMContentLoaded', function() {
+    if (webgazer) {
+        webgazer.setGazeListener(function(data, timestamp) {
+            if (data == null) {
+                return;
+            }
+            //console.log(data.x, data.y);
+        }).begin();
+
+        // 加载并设置之前保存的校准点
+        const savedCalibrationData = JSON.parse(localStorage.getItem('calibrationData') || '[]');
+        savedCalibrationData.forEach(point => {
+            webgazer.recordScreenPosition(point.x, point.y, 'click');
+            console.log(`Calibration point at (${point.x}, ${point.y}) restored.`);
+        });
+    }
+    webgazer.showVideoPreview(false); // 不显示摄像头视频预览
+    webgazer.showPredictionPoints(false);
+});
+webgazer.setGazeListener(function(data, elapsedTime) {
+
+
+    if (data == null) {
+        return;
+    }
+    var x = data.x; 
+    var y = data.y;
+
+    var canvas = document.querySelector('canvas');
+    var context = canvas.getContext('2d');
+    var rect = canvas.getBoundingClientRect();
+
+    // 调整视点坐标，使其相对于canvas
+    x -= 320;
+    y -= 340;
+
+    // 应用局部模糊效果
+    applyLocalBlur(x, y);
+}).begin();
+    
+            document.addEventListener('keydown', handleKeyDown);
+    document.addEventListener('keyup', handleKeyUp);
+    
+    const keysPressed = {};
+    
+    function handleKeyDown(event) {
+        keysPressed[event.key] = true; // 标记键为按下状态
+        checkKeysAndReset();
+    }
+    
+    function handleKeyUp(event) {
+        keysPressed[event.key] = false; // 标记键为释放状态
+    }
+    
+    function checkFullScreenCombination() {
+        if (keysPressed['f'] && keysPressed['s']) { // 检查"F"和"S"是否同时被按下
+            toggleFullScreen();
+        }
+    }
+    
+    function toggleFullScreen() {
+        var elem = document.documentElement; // 获取根元素，通常是全屏显示的目标
+        if (!document.fullscreenElement) {
+            if (elem.requestFullscreen) {
+                elem.requestFullscreen(); // 标准方法
+            } else if (elem.mozRequestFullScreen) { // Firefox
+                elem.mozRequestFullScreen();
+            } else if (elem.webkitRequestFullscreen) { // Chrome, Safari 和 Opera
+                elem.webkitRequestFullscreen();
+            } else if (elem.msRequestFullscreen) { // IE/Edge
+                elem.msRequestFullscreen();
+            }
+        } else {
+            if (document.exitFullscreen) {
+                document.exitFullscreen(); // 退出全屏
+            } else if (document.mozCancelFullScreen) { // Firefox
+                document.mozCancelFullScreen();
+            } else if (document.webkitExitFullscreen) { // Chrome, Safari 和 Opera
+                document.webkitExitFullscreen();
+            } else if (document.msExitFullscreen) { // IE/Edge
+                document.msExitFullscreen();
+            }
+        }
+    }
+    function checkKeysAndReset() {
+        if (keysPressed['r'] && keysPressed['s']) { // 检查是否同时按下了"A"和"S"
+            // 执行重置逻辑
+            localStorage.clear();
+            console.log("LocalStorage has been cleared");
+    
+            // 重置文本内容到初始状态
+            document.getElementById('text').textContent = "Human reason is beautiful and invincible.";
+            document.getElementById('gptGuess').textContent = "Human reason is beautiful and invincible.";
+            localStorage.setItem('gptGuess',"Human reason is beautiful and invincible.");
+            console.log("Reset executed: Text content and localStorage cleared.");
+        }
+    }
+        //document.getElementById('workingButton').addEventListener('click',startPrintJobTestWithUpdatedData);
+        var offsetX = 0;
+        var offsetY = -2.0;
+        var width = 40;
+        var height = 15;
+        var rotate = 0;
+        var marginX = 8.0;
+        var marginY = 2.0;
+        var titleFontSize = 5.6;
+        var titleWidth = width - marginX * 2;
+        var titleHeight = 7.4;
+        
+        var sheetHeight = 3.0;
+        
+        var contentWidth = width - marginX * 3;
+        var contentHeight = 2.3;
+        var fontSize = 3.2;
+      
+            document.getElementById('goFullScreen').addEventListener('click', function() {
+                var elem = document.documentElement; // 获取根元素，使整个页面全屏
+                if (elem.requestFullscreen) {
+                    elem.requestFullscreen(); // 标准方法
+                } else if (elem.mozRequestFullScreen) { // Firefox
+                    elem.mozRequestFullScreen();
+                } else if (elem.webkitRequestFullscreen) { // Chrome, Safari 和 Opera
+                    elem.webkitRequestFullscreen();
+                } else if (elem.msRequestFullscreen) { // IE/Edge
+                    elem.msRequestFullscreen();
+                }
+            });
+           
+            
+        function updatePrintData() {
+            var gptGuess = localStorage.getItem('gptGuess');
+            console.log("Retrieved gptGuess from localStorage:", gptGuess);
+            if (gptGuess) {
+                textPrintData.elements[0].json.value = gptGuess;
+            } else {
+                textPrintData.elements[0].json.value = "No GPT Guess available"; // 默认值
+            }
+        }
+        const textPrintData = {
+            InitDrawingBoardParam: {
+                "width": width,
+                "height": height,
+                "rotate": rotate,
+                "path": "ZT001.ttf",
+                "verticalShift": 0,
+                "HorizontalShift": 0
+            },
+            "elements": [
+                {
+                    type: 'text',
+                    json: {
+                        "x": marginX + offsetX,
+                        "y": marginY * 2 + offsetY,
+                        "height": titleHeight,
+                        "width": titleWidth,
+                        "value": "", // 初始默认值，将在打印前更新
+                        "fontFamily": "宋体",
+                        "rotate": 0,
+                        "fontSize": titleFontSize,
+                        "textAlignHorizonral": 1,
+                        "textAlignVertical": 1,
+                        "letterSpacing": 0.0,
+                        "lineSpacing": 1.0,
+                        "lineMode": 6,
+                        "fontStyle": [true, false, false, false],
+                    }
+                },
+            ]
+        };
+       
+function startPrintJobTestWithUpdatedData() {
+updatePrintData();
+startPrintJobTest(textPrintData);
+}
+
+document.getElementById('workingButton').addEventListener('click', function() {
+    console.log('Button was clicked');
+    startPrintJobTestWithUpdatedData();
+});
+
+        document.querySelectorAll('.calibration-point').forEach(point => {
+            point.addEventListener('click', function() {
+                let x = this.offsetLeft + this.clientWidth / 2;
+                let y = this.offsetTop + this.clientHeight / 2;
+        
+                // 在WebGazer中注册这个校准点
+                webgazer.recordScreenPosition(x, y, 'click');
+                console.log("Calibration point at: ", x, y);
+        
+                // 可以选择让点在点击后消失或改变颜色
+                this.style.backgroundColor = 'transparent';
+            });
+        });
+        
         var latestText = ""; // Global variable to store the latest text
-        var maxBlurLevel = 4;
+        var maxBlurLevel = 7;
         function typeWriter(element, text, speed) {
             let i = 0;
             element.textContent = ''; // Clear existing text
@@ -65,53 +320,100 @@
 
             var blurMap = new Map();
 
-            document.addEventListener('mousemove', function(e) {
-                var rect = canvas.getBoundingClientRect();
-                var x = e.clientX - rect.left; // Adjust x to consider canvas' margin-left
-                var y = e.clientY - rect.top; // Adjust y to consider canvas' margin-top
-                applyLocalBlur(x, y);
-            });
-            
 
-            setInterval(function() {
-                regenerateText();
-            }, 4000);
+//mousemove
+webgazer.setGazeListener(function(data, elapsedTime) {
+    webgazer.showVideoPreview(false); // 不显示摄像头视频预览
+    webgazer.showPredictionPoints(false);
 
-            setInterval(function() {
-                callOpenAIGPT();
-            }, 10000);
+    if (data == null) {
+        return;
+    }
+    var x = data.x; 
+    var y = data.y;
+
+    var canvas = document.querySelector('canvas');
+    var context = canvas.getContext('2d');
+    var rect = canvas.getBoundingClientRect();
+
+    // 调整视点坐标，使其相对于canvas
+    x -= 520;
+    y -= 620;
+
+    // 应用局部模糊效果
+    applyLocalBlur(x, y);
+}).begin();
+
+
+           // setInterval(function() {
+             //   regenerateText();
+            //}, 4000);
+
+            //setInterval(function() {
+//                callOpenAIGPT();
+  //          }, 20000);
 
             // Apply local blur effect
+            var hasCalledGPT = false; // Global flag to ensure callOpenAIGPT is only called once per condition fulfillment
+
             function applyLocalBlur(x, y) {
                 context.clearRect(0, 0, canvas.width, canvas.height);
+                
                 context.font = "36px 'Titillium Web', sans-serif";
                 context.textBaseline = "top";
-
-                // Draw text with blur
+            
                 var totalWidth = 0;
-                var text = gptGuessElement.textContent.split(" "); // Use GPT-3 guess text instead
+                var text = gptGuessElement.textContent.split(" ");
+                var shouldCallGPT = false; // Local flag to check condition inside the loop
+            
                 text.forEach(word => {
                     var wordWidth = context.measureText(word + " ").width;
                     if (x >= totalWidth && x <= totalWidth + wordWidth) {
                         increaseBlur(totalWidth, wordWidth, canvas.height / 2);
                     }
                     var maxBlur = getMaxBlur(totalWidth, wordWidth, canvas.height / 2);
-                    maxBlur = Math.min(maxBlur, maxBlurLevel); // Limit the blur level
+                    maxBlur = Math.min(maxBlur, maxBlurLevel);
                     context.filter = `blur(${maxBlur}px)`;
                     context.fillText(word + " ", totalWidth, 0);
                     totalWidth += wordWidth;
+            
+                    if (maxBlur === maxBlurLevel && !hasCalledGPT) { // Check if max blur level reached and GPT has not been called
+                        shouldCallGPT = true;
+                    }
+ 
                 });
+            
+                if (shouldCallGPT) {
+                    hasCalledGPT = true; // Set the flag so it doesn't call again until reset
+                    regenerateText();
+                    //callOpenAIGPT();
+                }
             }
-
+            
+            function speakText(text) {
+                var utterance = new SpeechSynthesisUtterance(text);
+                utterance.voice = speechSynthesis.getVoices().find(voice => voice.lang === 'en-US');
+                utterance.pitch = 1;
+                utterance.rate = 1;
+                speechSynthesis.speak(utterance);
+                hasCalledGPT = false; // Reset the flag after speaking, allowing another call if conditions are met again
+            }
+            
             function increaseBlur(startX, wordWidth, centerY) {
                 for (let i = startX; i <= startX + wordWidth; i++) {
                     for (let j = centerY - 20; j <= centerY + 20; j++) {
                         let pixelKey = `${i},${j}`;
-                        let currentBlur = blurMap.get(pixelKey) || 0;
-                        blurMap.set(pixelKey, currentBlur + 0.05);
+                        let currentBlur = blurMap.get(pixelKey) || 0.0;
+                        
+                        if (currentBlur < 2.4) {
+                            blurMap.set(pixelKey, currentBlur + 0.25);
+                        } else if (currentBlur < 7.0) {
+                            blurMap.set(pixelKey, 7.0);
+                        }
                     }
                 }
             }
+           
 
             function getMaxBlur(startX, wordWidth, centerY) {
                 let maxBlur = 0;
@@ -124,6 +426,7 @@
             }
 
             function regenerateText() {
+                var canvas = document.querySelector('canvas');
                 canvas.toBlob(function(blob) {
                     Tesseract.recognize(
                         blob,
@@ -131,16 +434,15 @@
                         { logger: m => console.log(m) }
                     ).then(({ data: { text } }) => {
                         console.log("OCR Result:", text);
-                        textElement.textContent = text.split("\n")[0]; // Update only the first line of text
-                        latestText = text.split("\n")[0]; // Update global variable with the first line
+                        latestText = text; // 存储 OCR 结果
+                        callOpenAIGPT(latestText); // 将文本传递给 AI 处理函数
                     });
                 });
             }
-
-            function callOpenAIGPT() {
-                var text = latestText; // Use the latest text from the global variable
-                var prompt = `hello, this is an OCR recognized text: '${text}'. The original text is blurred so I cannot understand its meaning. I know it had 7-10 words, and is about 'being'. Can you make a guess of what was the original text(it was a fluent statment)? Only change the word you can not understand, don't change too much. Please only return the text you guess, no other informations.`;
-
+            
+            function callOpenAIGPT(ocrText) {
+                var prompt = `hello, this is an OCR recognized text: '${ocrText}'. The original text is blurred so I cannot understand its meaning. I know it had 7-10 words, and is about 'being'. Can you make a guess of what was the original text(it was a fluent statement)? Only change the word you cannot understand, don't change too much. Please only return the text you guess, no other informations.`;
+            
                 fetch('http://localhost:3001/call-openai', {
                     method: 'POST',
                     headers: {
@@ -148,19 +450,53 @@
                     },
                     body: JSON.stringify({
                         prompt: prompt,
-                        text: text
+                        text: ocrText // 确保将 OCR 文本作为请求的一部分发送
                     })
                 }).then(response => response.json())
                 .then(data => {
                     console.log("AI Regeneration:", data.guess);
-                    gptGuessElement.textContent = data.guess; // Display GPT-3's guess
+                    document.getElementById('gptGuess').textContent = data.guess; // 显示 GPT-3 的猜测
+                    localStorage.setItem('gptGuess', data.guess); // 保存猜测结果
                     blurMap.clear();
-                    
+                    //startPrintJobTestWithUpdatedData();
+                    speakText(data.guess);
                 }).catch(error => {
                     console.error("Error calling OpenAI GPT:", error);
                 });
             }
+            
         };
+
+
+        
+            // WebSocket setup to receive messages from the server
+            const socket = new WebSocket('ws://localhost:3002');
+    
+            socket.addEventListener('open', () => {
+                console.log('Connected to WebSocket server');
+            });
+    
+            socket.addEventListener('message', (event) => {
+                const message = JSON.parse(event.data);
+                console.log('Received message:', message);
+    
+                if (message.status === 'pressed') {
+                    console.log('Button was pressed');
+                    // Add your logic here to handle the button press
+                    startPrintJobTestWithUpdatedData(); // Example function call
+                }
+            });
+    
+            socket.addEventListener('close', () => {
+                console.log('Disconnected from WebSocket server');
+            });
+    
+            socket.addEventListener('error', (error) => {
+                console.error('WebSocket error:', error);
+            });
+    
+        
     </script>
 </body>
 </html>
+
